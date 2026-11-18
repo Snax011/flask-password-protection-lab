@@ -112,3 +112,29 @@ class TestApp:
             
             assert(response.status_code == 204)
             assert(not response.data)
+
+    def test_passwords_are_hashed_and_incorrect_passwords_are_rejected(self):
+        '''protects stored passwords and rejects invalid login credentials.'''
+        with app.app_context():
+            User.query.delete()
+            db.session.commit()
+
+        with app.test_client() as client:
+            client.post('/signup', json={
+                'username': 'ash',
+                'password': 'pikachu',
+            })
+            client.delete('/logout')
+
+            user = User.query.filter_by(username='ash').first()
+            assert(user._password_hash != 'pikachu')
+            assert(user.authenticate('pikachu'))
+            assert(not user.authenticate('incorrect'))
+            with pytest.raises(AttributeError):
+                user.password_hash
+
+            response = client.post('/login', json={
+                'username': 'ash',
+                'password': 'incorrect',
+            })
+            assert(response.status_code == 401)
